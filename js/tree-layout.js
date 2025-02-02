@@ -38,9 +38,6 @@ import {htreeLayout} from './htree-layout.js';
  *
  */
 const treeLayout = (rootNd, {direction = 'h', ...otherOptions}) => {
-    console.log("direction", direction in ['h', 'h-right']);
-    console.log("direction", direction);
-
     if (['h', 'h-right'].includes(direction)) {
         return htreeLayout(rootNd, {
             allNdsOnRight: 'h-right' === direction,
