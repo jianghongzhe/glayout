@@ -1,7 +1,7 @@
 {
-  "name": "gjoint-line",
+  "name": "glayout",
   "version": "1.0.0",
-  "main": "js/joint-line.js",
+  "main": "js/tree-layout.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
