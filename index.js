@@ -2,24 +2,24 @@ import {treeLayout} from './js/tree-layout.js';
 
 const ndTree = {
     id: 'from',
-    selectorOrEle: "#from",
+    // selectorOrEle: "#from",
     expand: true,
     lev: 0,
     expBtnId: "btn_from",
-    expBtnSelectorOrEle: "#btn_from",
+    // expBtnSelectorOrEle: "#btn_from",
     childs: [
         {
             id: "to",
             lev: 1,
-            selectorOrEle: "#to",
+            // selectorOrEle: "#to",
             expand: false,
             expBtnId: "btn_to",
-            expBtnSelectorOrEle: "#btn_to",
+            // expBtnSelectorOrEle: "#btn_to",
             childs: [
                 {
                     id: "to2",
                     lev: 2,
-                    selectorOrEle: "#to2",
+                    // selectorOrEle: "#to2",
                 },
 
             ]
@@ -27,24 +27,21 @@ const ndTree = {
         {
             id: "to3",
             lev: 1,
-            selectorOrEle: "#to3",
+            // selectorOrEle: "#to3",
             expand: true,
             expBtnId: "btn_to3",
-            expBtnSelectorOrEle: "#btn_to3",
+            // expBtnSelectorOrEle: "#btn_to3",
             childs: [
                 {
                     id: "to4",
                     lev: 2,
-                    selectorOrEle: "#to4",
+                    // selectorOrEle: "#to4",
                 },
                 {
                     id: "to5",
                     lev: 2,
-                    selectorOrEle: "#to5",
+                    // selectorOrEle: "#to5",
                 },
-
-
-
             ]
         }
 
@@ -53,15 +50,25 @@ const ndTree = {
 
 
 const options = {
-    direction: 'h-right',
+    // direction: 'h-right',
     // direction: 'h',
+    // direction: 'down',
+    direction: 'up',
 
+    //// for h or h-right layout
     // nodePaddingTopSecondary: 20,
-    // nodePaddingTop: 40,
+    // nodePaddingTop: 10,
     // xDistAngleDegree: 13,
     // xDistRoot: 60,
     // xDist: 40,
+
+    //// for up or down layout
+    // nodePaddingLeftSecondary: 20,
+    // nodePaddingLeft: 10,
+    // yDistRoot: 60,
+    // yDist: 40,
 };
+
 
 
 const applyStyle = () => {

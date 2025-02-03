@@ -1,4 +1,5 @@
-import {getEle, toInt} from './util.js';
+import {toInt} from './util.js';
+import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
 
 
 const defaultOptions = {
@@ -48,19 +49,11 @@ const htreeLayout = (rootNd, options = {}) => {
         ndStyles: {},
         expBtnStyles: {},
         wrapperStyle: {},
-        lineStyles: {},
     };
 
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
-
-    // load nd rects and exp btn rects
-    flatNdMap.forEach((nd, id) => {
-        result.rects[id] = getEle(nd.selectorOrEle).getBoundingClientRect();
-        if (0 < (nd?.childs ?? []).length) {
-            result.expBtnRects[id] = getEle(nd.expBtnSelectorOrEle).getBoundingClientRect();
-        }
-    });
+    loadRects(flatNdMap, result);
 
     // put nodes and calc canvas size
     let [w, h] = putNds(rootNd, result, options, flatNdMap);
@@ -69,65 +62,17 @@ const htreeLayout = (rootNd, options = {}) => {
         height: h,
     };
 
-    // calc hidden nodes and their exp btn location : use the location of the nearest non-hidden ancestry util the root node
-    flatNdMap.forEach((nd, ndId) => {
-        if (!nd.hidden) {
-            return;
-        }
-
-        let visibleAncestry = nd.par;
-        while (visibleAncestry.hidden) {
-            visibleAncestry = visibleAncestry.par;
-        }
-
-        result.ndStyles[ndId] = {
-            left: result.ndStyles[visibleAncestry.id].left,
-            top: result.ndStyles[visibleAncestry.id].top + (result.rects[visibleAncestry.id].height - result.rects[ndId].height) / 2,
-            hidden: true,
-        };
-
-        if (0 < (nd?.childs ?? []).length) {
-            result.expBtnStyles[ndId] = {
-                ...result.ndStyles[ndId],
-            };
-        }
-    });
-
-
+    calcHiddenNdsAndExpBtnsStyle(flatNdMap, result);
     return result;
 }
 
-const flattenNds = (nd, parNd, result) => {
-    const isHidden = () => {
-        if (null === parNd) {
-            return false;
-        }
 
-        let hiddenAncestry = result.get(parNd.id);
-        while (null !== hiddenAncestry && true === hiddenAncestry.expand) {
-            hiddenAncestry = hiddenAncestry.par;
-        }
-
-        return null !== hiddenAncestry && true !== hiddenAncestry.expand;
-    };
-
-    result.set(nd.id, {
-        ...nd,
-        par: null === parNd ? null : result.get(parNd.id),
-        isRoot: null === parNd,
-        isSecondary: 1 === nd.lev,
-        hidden: isHidden(),
-    });
-    (nd?.childs ?? []).forEach(subNd => flattenNds(subNd, nd, result));
-};
-
-
-const putNds = (rootNd, resultWrapper, options, flattenNds) => {
+const putNds = (rootNd, resultWrapper, options, flatNdMap) => {
     const {nodePaddingTopSecondary} = options;
     let [leftH, rightH] = setNdDirection(rootNd, resultWrapper, options);
 
     // 计算根节点与其子节点间的水平距离
-    const xDist = calcXDist(rootNd, resultWrapper, [leftH, rightH], options, flattenNds);
+    const xDist = calcXDist(rootNd, resultWrapper, [leftH, rightH], options, flatNdMap);
 
     let currLeftTop = (leftH < rightH ? toInt((rightH - leftH) / 2) : 0);
     let currRightTop = (rightH < leftH ? toInt((leftH - rightH) / 2) : 0);
@@ -176,63 +121,6 @@ const putNds = (rootNd, resultWrapper, options, flattenNds) => {
     }
 
     return refineNdPos(resultWrapper);
-}
-
-
-const refineNdPos = (resultWrapper) => {
-    //计算最小位置与最大位置
-    let minX = 9999999;
-    let minY = 9999999;
-    let maxX = 0;
-    let maxY = 0;
-
-    for (let key in resultWrapper.ndStyles) {
-        let l = resultWrapper.ndStyles[key].left;
-        let t = resultWrapper.ndStyles[key].top;
-        let r = l + resultWrapper.rects[key].width;
-        let b = t + resultWrapper.rects[key].height;
-
-        if (l < minX) {
-            minX = l;
-        }
-        if (t < minY) {
-            minY = t;
-        }
-        if (r > maxX) {
-            maxX = r;
-        }
-        if (b > maxY) {
-            maxY = b;
-        }
-    }
-
-    //图表容器的大小，里面包括空白
-    let requireW = (maxX - minX) + graphPadding * 2;
-    let requireH = (maxY - minY) + graphPadding * 2;
-
-    let xAdjust = graphPadding - minX;
-    let yAdjust = graphPadding - minY;
-    let moreXAdjust = 0;
-
-    //如果容器大小还不到整个区域的大小-10,则增加到该值，同时x坐标也增加以保证在容器里居中
-    if (requireW < containerMinW) {
-        moreXAdjust = (containerMinW - requireW) / 2;
-        requireW = containerMinW;
-    }
-    if (requireH < containerMinH) {
-        requireH = containerMinH;
-    }
-
-    for (let key in resultWrapper.ndStyles) {
-        resultWrapper.ndStyles[key].left += xAdjust + moreXAdjust;
-        resultWrapper.ndStyles[key].top += yAdjust;
-    }
-    for (let key in resultWrapper.expBtnStyles) {
-        resultWrapper.expBtnStyles[key].left += xAdjust + moreXAdjust;
-        resultWrapper.expBtnStyles[key].top += yAdjust;
-    }
-
-    return [requireW, requireH];
 }
 
 
@@ -286,7 +174,6 @@ const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, op
         putExpBtn(nd, l, t, left, resultWrapper);
         putSubNds(startT, l - xDist, nd, left, resultWrapper, options);
         startT += allHeight + toInt(nodePaddingTop);
-        return;
     });
 }
 
@@ -404,8 +291,7 @@ const getVDist = (allHeight, fromY, subNd, resultWrapper, topDown = true, option
     if (!topDown) {
         toY = allHeight - (subAllHeight - subSelfHeight) / 2 - subSelfHeight + (1 === subNd.lev ? subSelfHeight / 2 : subSelfHeight);
     }
-    let tmpHDist = toInt(Math.abs(toY - fromY));
-    return tmpHDist;
+    return toInt(Math.abs(toY - fromY));
 }
 
 const putExpBtn = (nd, l, t, left = false, resultWrapper = null) => {
@@ -552,10 +438,6 @@ const getNdHeight = (nd, resultWrapper, {nodePaddingTop,}) => {
  *      sumHeight: 20,
  * // }
  */
-
-const containerMinW = 800;    //导图容器最小宽
-const containerMinH = 600;    //导图容器最小高
-const graphPadding = 40;    //图表内容与容器边缘之间的距离
 
 
 export {

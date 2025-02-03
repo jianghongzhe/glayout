@@ -1,4 +1,6 @@
 import {htreeLayout} from './htree-layout.js';
+import {downtreeLayout} from "./downtree-layout.js";
+import {uptreeLayout} from "./uptree-layout.js";
 
 /**
  *
@@ -10,10 +12,7 @@ import {htreeLayout} from './htree-layout.js';
  *      expBtnId
  *      expBtnEl: : "idOrElement",
  *      childs: [
- *          {
- *              dd
- *
- *          }
+ *          { ... }
  *      ]
  * // }
  *
@@ -22,19 +21,8 @@ import {htreeLayout} from './htree-layout.js';
  *  h-right  horizontal and all nodes on right
  *  up - from bottom to top
  *  down - from top to bottom
- *
+ * @param otherOptions
  * @return
- * [
- *     {
- *         id:'x',
- *         left: 1,
- *         top: 1,
- *         visible: true,
- *         expBtnLeft: 1,
- *         expBtnTop: 1,
- *         expBtnVisible: true,
- *     }
- * ]
  *
  */
 const treeLayout = (rootNd, {direction = 'h', ...otherOptions}) => {
@@ -44,8 +32,15 @@ const treeLayout = (rootNd, {direction = 'h', ...otherOptions}) => {
             ...otherOptions,
         });
     }
+    if ('down' === direction) {
+        return downtreeLayout(rootNd, {...otherOptions,});
+    }
+    if ('up' === direction) {
+        return uptreeLayout(rootNd, {...otherOptions,});
+    }
 
-    const errMsg="unsupported layout: "+direction;
+
+    const errMsg = "unsupported layout: " + direction;
     console.error(errMsg);
     throw errMsg;
 };
