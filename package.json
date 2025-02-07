@@ -1,7 +1,7 @@
 {
   "name": "glayout",
   "version": "1.0.0",
-  "main": "js/tree-layout.js",
+  "main": "js/facade.js",
   "type": "module",
   "scripts": {
     "dev": "vite",

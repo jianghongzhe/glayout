@@ -26,12 +26,17 @@ const downtreeLayout = (rootNd, options = {}) => {
         wrapperStyle: {},
     };
 
+    const cache = {
+        allWidth: new Map(),
+        subTreeWidth: new Map(),
+    };
+
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
     loadRects(flatNdMap, result);
 
     // put nodes and calc canvas size
-    let [w, h] = putNds(rootNd, result, options);
+    let [w, h] = putNds(rootNd, result, options, cache);
     result.wrapperStyle = {
         width: w,
         height: h,
@@ -42,17 +47,17 @@ const downtreeLayout = (rootNd, options = {}) => {
     return result;
 };
 
-const putNds = (rootNd, resultWrapper, options) => {
-    putNdsRecursively(rootNd, resultWrapper, 0, 0, options);
+const putNds = (rootNd, resultWrapper, options, cache) => {
+    putNdsRecursively(rootNd, resultWrapper, 0, 0, options, cache);
     return refineNdPos(resultWrapper);
 }
 
-const putNdsRecursively = (nd, resultWrapper, beginLeft = 0, beginTop = 0, options) => {
+const putNdsRecursively = (nd, resultWrapper, beginLeft = 0, beginTop = 0, options, cache) => {
 
     const {yDistRoot, yDist, nodePaddingLeftSecondary, nodePaddingLeft} = options;
 
     const selfW = toInt(resultWrapper.rects[nd.id].width);
-    const sumW = getNdWidth(nd, resultWrapper, options);
+    const sumW = getNdWidth(nd, resultWrapper, options, cache);
 
     resultWrapper.ndStyles[nd.id] = {
         left: toInt(beginLeft + (sumW - selfW) / 2),
@@ -69,16 +74,18 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft = 0, beginTop = 0, optio
         // 如果子节点所占用的全部宽度比父节点本身宽度还小，则增加一些偏移量（宽度差的一半）
         let childSumW = 0;
         for (let i = 0; i < nd.childs.length; ++i) {
-            childSumW += getNdWidth(nd.childs[i], resultWrapper, options)
-                + (0 < i ? toInt(1 === nd.childs[i].lev ? nodePaddingLeftSecondary : nodePaddingLeft) : 0);
+            childSumW += getNdWidth(nd.childs[i], resultWrapper, options, cache);
+            if (0 < i) {
+                childSumW += toInt(1 === nd.childs[i].lev ? nodePaddingLeftSecondary : nodePaddingLeft);
+            }
         }
         if (childSumW < selfW) {
             accuBeginLeft += toInt((selfW - childSumW) / 2);
         }
 
-        for (let i = 0; i < nd.childs.length; ++i) {
-            putNdsRecursively(nd.childs[i], resultWrapper, accuBeginLeft, subBeginTop, options);
-            accuBeginLeft += getNdWidth(nd.childs[i], resultWrapper, options) + toInt(1 === nd.childs[i].lev ? nodePaddingLeftSecondary : nodePaddingLeft);
+        for (const subNd of nd.childs) {
+            putNdsRecursively(subNd, resultWrapper, accuBeginLeft, subBeginTop, options, cache);
+            accuBeginLeft += getNdWidth(subNd, resultWrapper, options, cache) + toInt(1 === subNd.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
         }
     }
 }
@@ -114,7 +121,11 @@ const putExpBtnRecursively = (nd, resultWrapper) => {
 };
 
 
-const getNdWidth = (nd, resultWrapper, options) => {
+const getNdWidth = (nd, resultWrapper, options, cache) => {
+    if (cache.allWidth.has(nd.id)) {
+        return cache.allWidth.get(nd.id);
+    }
+
     //无子节点或未展开，取本节点的宽度
     if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
         return toInt(resultWrapper.rects[nd.id].width);
@@ -125,10 +136,14 @@ const getNdWidth = (nd, resultWrapper, options) => {
     //有子节点，取所有子节点的高度和，中间加上空白的距离
     let sumChildrenH = 0;
     nd.childs.forEach((child, ind) => {
-        sumChildrenH += (0 < ind ? toInt(1 === child.lev ? nodePaddingLeftSecondary : nodePaddingLeft) : 0) +
-            getNdWidth(child, resultWrapper, options);
+        if (0 < ind) {
+            sumChildrenH += toInt(1 === child.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
+        }
+        sumChildrenH += getNdWidth(child, resultWrapper, options, cache);
     });
-    return toInt(Math.max(resultWrapper.rects[nd.id].width, sumChildrenH));
+
+    cache.allWidth.set(nd.id, toInt(Math.max(resultWrapper.rects[nd.id].width, sumChildrenH)));
+    return cache.allWidth.get(nd.id);
 }
 
 export {downtreeLayout};

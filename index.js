@@ -1,4 +1,4 @@
-import {treeLayout} from './js/tree-layout.js';
+import {treeLayout} from './js/facade.js';
 
 const ndTree = {
     id: 'from',
@@ -52,8 +52,8 @@ const ndTree = {
 const options = {
     // direction: 'h-right',
     // direction: 'h',
-    // direction: 'down',
-    direction: 'up',
+    direction: 'down',
+    // direction: 'up',
 
     //// for h or h-right layout
     // nodePaddingTopSecondary: 20,

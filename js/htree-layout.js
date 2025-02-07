@@ -51,12 +51,17 @@ const htreeLayout = (rootNd, options = {}) => {
         wrapperStyle: {},
     };
 
+    const cache = {
+        allHeight: new Map(),
+        subTreeHeight: new Map(),
+    };
+
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
     loadRects(flatNdMap, result);
 
     // put nodes and calc canvas size
-    let [w, h] = putNds(rootNd, result, options, flatNdMap);
+    let [w, h] = putNds(rootNd, result, options, flatNdMap, cache);
     result.wrapperStyle = {
         width: w,
         height: h,
@@ -67,12 +72,12 @@ const htreeLayout = (rootNd, options = {}) => {
 }
 
 
-const putNds = (rootNd, resultWrapper, options, flatNdMap) => {
+const putNds = (rootNd, resultWrapper, options, flatNdMap, cache) => {
     const {nodePaddingTopSecondary} = options;
-    let [leftH, rightH] = setNdDirection(rootNd, resultWrapper, options);
+    let [leftH, rightH] = setNdDirection(rootNd, resultWrapper, options, cache);
 
     // 计算根节点与其子节点间的水平距离
-    const xDist = calcXDist(rootNd, resultWrapper, [leftH, rightH], options, flatNdMap);
+    const xDist = calcXDist(rootNd, resultWrapper, [leftH, rightH], options, cache);
 
     let currLeftTop = (leftH < rightH ? toInt((rightH - leftH) / 2) : 0);
     let currRightTop = (rightH < leftH ? toInt((leftH - rightH) / 2) : 0);
@@ -94,28 +99,28 @@ const putNds = (rootNd, resultWrapper, options, flatNdMap) => {
         //左
         (rootNd?.childs ?? []).filter(nd => resultWrapper.directions[nd.id]).forEach(nd => {
             // 设置根节点的子节点的位置，并递归设置再下层节点的位置
-            let allHeight = getNdHeight(nd, resultWrapper, options);
+            let allHeight = getNdHeight(nd, resultWrapper, options, cache);
             let l = toInt(rootLoc[0] - xDist - resultWrapper.rects[nd.id].width);//根节点x - 空隙 - 节点本身宽度
             let t = toInt(currLeftTop + (allHeight - resultWrapper.rects[nd.id].height) / 2);
             resultWrapper.ndStyles[nd.id] = {left: l, top: t}
             putExpBtn(nd, l, t, true, resultWrapper);
 
-            const subXDist = calcXDist(nd, resultWrapper, null, options);
-            putSubNds(currLeftTop, l - subXDist, nd, true, resultWrapper, options);
+            const subXDist = calcXDist(nd, resultWrapper, null, options, cache);
+            putSubNds(currLeftTop, l - subXDist, nd, true, resultWrapper, options, cache);
             currLeftTop += allHeight + toInt(nodePaddingTopSecondary);
         });
 
         //右
         (rootNd?.childs ?? []).filter(nd => !resultWrapper.directions[nd.id]).forEach(nd => {
             // 设置根节点的子节点的位置，并递归设置再下层节点的位置
-            let allHeight = getNdHeight(nd, resultWrapper, options);
+            let allHeight = getNdHeight(nd, resultWrapper, options, cache);
             let l = toInt(rootLoc[0] + resultWrapper.rects[rootNd.id].width + xDist);//根节点x + 根节点宽 + 空隙
             let t = toInt(currRightTop + (allHeight - resultWrapper.rects[nd.id].height) / 2);
             resultWrapper.ndStyles[nd.id] = {left: l, top: t,}
             putExpBtn(nd, l, t, false, resultWrapper);
 
-            const subXDist = calcXDist(nd, resultWrapper, null, options);
-            putSubNds(currRightTop, l + resultWrapper.rects[nd.id].width + subXDist, nd, false, resultWrapper, options);
+            const subXDist = calcXDist(nd, resultWrapper, null, options, cache);
+            putSubNds(currRightTop, l + resultWrapper.rects[nd.id].width + subXDist, nd, false, resultWrapper, options, cache);
             currRightTop += allHeight + toInt(nodePaddingTopSecondary);//
         });
     }
@@ -124,7 +129,7 @@ const putNds = (rootNd, resultWrapper, options, flatNdMap) => {
 }
 
 
-const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, options) => {
+const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, options, cache) => {
     if (true !== parNd.expand) {
         return;
     }
@@ -136,7 +141,7 @@ const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, op
     const parHeight = toInt(resultWrapper.rects[parNd.id].height);
     let childAllHeight = 0;
     parNd.childs.forEach((nd, childInd) => {
-        childAllHeight += getNdHeight(nd, resultWrapper, options) + (0 < childInd ? toInt(nodePaddingTop) : 0);
+        childAllHeight += getNdHeight(nd, resultWrapper, options, cache) + (0 < childInd ? toInt(nodePaddingTop) : 0);
     });
     if (childAllHeight < parHeight) {
         startT = toInt(startT + (parHeight - childAllHeight) / 2);
@@ -145,11 +150,11 @@ const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, op
 
     parNd?.childs?.forEach(nd => {
         // 子节点与下级节点间的水平距离
-        const xDist = calcXDist(nd, resultWrapper, null, options);
+        const xDist = calcXDist(nd, resultWrapper, null, options, cache);
 
         //往右排
         if (!left) {
-            let allHeight = getNdHeight(nd, resultWrapper, options);
+            let allHeight = getNdHeight(nd, resultWrapper, options, cache);
             let t = toInt(startT + (allHeight - resultWrapper.rects[nd.id].height) / 2);
 
             resultWrapper.ndStyles[nd.id] = {
@@ -158,13 +163,13 @@ const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, op
             };
 
             putExpBtn(nd, startL, t, left, resultWrapper);
-            putSubNds(startT, startL + resultWrapper.rects[nd.id].width + xDist, nd, left, resultWrapper, options);//右边节点的位置是当前节点
+            putSubNds(startT, startL + resultWrapper.rects[nd.id].width + xDist, nd, left, resultWrapper, options, cache);//右边节点的位置是当前节点
             startT += allHeight + toInt(nodePaddingTop);
             return;
         }
 
         //往左排
-        let allHeight = getNdHeight(nd, resultWrapper, options);
+        let allHeight = getNdHeight(nd, resultWrapper, options, cache);
         let t = toInt(startT + (allHeight - resultWrapper.rects[nd.id].height) / 2);
         let l = startL - resultWrapper.rects[nd.id].width;
         resultWrapper.ndStyles[nd.id] = {
@@ -172,7 +177,7 @@ const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, op
             top: t,
         };
         putExpBtn(nd, l, t, left, resultWrapper);
-        putSubNds(startT, l - xDist, nd, left, resultWrapper, options);
+        putSubNds(startT, l - xDist, nd, left, resultWrapper, options, cache);
         startT += allHeight + toInt(nodePaddingTop);
     });
 }
@@ -200,7 +205,7 @@ const putSubNds = (startT, startL, parNd, left = false, resultWrapper = null, op
  * @param leftAndRightH // [left tree height of root node, right tree height of root node] only supply when nd is root node
  * @param options
  */
-const calcXDist = (nd, resultWrapper, leftAndRightH, options) => {
+const calcXDist = (nd, resultWrapper, leftAndRightH, options, cache) => {
     const {
         xDistAngleDegree,
         xDistRoot,
@@ -220,27 +225,29 @@ const calcXDist = (nd, resultWrapper, leftAndRightH, options) => {
         if (leftH > 0) {
             const leftNds = nd.childs.filter(subNd => resultWrapper.directions[subNd.id]);
             let fromY = toInt(leftH / 2);
-            let tmpHDist = getVDist(leftH, fromY, leftNds[0], resultWrapper, true, options);
+            let tmpHDist = getVDist(leftH, fromY, leftNds[0], resultWrapper, true, options, cache);
             hDist = Math.max(tmpHDist, hDist);
-            tmpHDist = getVDist(leftH, fromY, leftNds[leftNds.length - 1], resultWrapper, false, options);
+            tmpHDist = getVDist(leftH, fromY, leftNds[leftNds.length - 1], resultWrapper, false, options, cache);
             hDist = Math.max(tmpHDist, hDist);
         }
         if (rightH > 0) {
             const rightNds = nd.childs.filter(subNd => !resultWrapper.directions[subNd.id]);
             let fromY = toInt(rightH / 2);
-            let tmpHDist = getVDist(rightH, fromY, rightNds[0], resultWrapper, true, options);
+            let tmpHDist = getVDist(rightH, fromY, rightNds[0], resultWrapper, true, options, cache);
             hDist = Math.max(tmpHDist, hDist);
-            tmpHDist = getVDist(rightH, fromY, rightNds[rightNds.length - 1], resultWrapper, false, options);
+            tmpHDist = getVDist(rightH, fromY, rightNds[rightNds.length - 1], resultWrapper, false, options, cache);
             hDist = Math.max(tmpHDist, hDist);
         }
 
-        const calcXDist = toInt(hDist * Math.tan(xDistAngleDegree * Math.PI / 180));
-        return toInt(Math.max(xDistRoot, calcXDist));
+        return toInt(Math.max(
+            xDistRoot,
+            toInt(hDist * Math.tan(xDistAngleDegree * Math.PI / 180))
+        ));
     }
 
 
     // 二级或以下节点到子节点的情况
-    const allHeight = getSubTreeHeight(nd, resultWrapper, options);
+    const allHeight = getSubTreeHeight(nd, resultWrapper, options, cache);
 
     // 起始纵坐标位置：
     // 如果为根节点或二级节点到其子节点的连接线，起始位置为节点中间；否则，起始位置为节点底部
@@ -252,14 +259,16 @@ const calcXDist = (nd, resultWrapper, leftAndRightH, options) => {
     // 以第一个子节点和最后一个子节点为代表计算与起始位置的高度差，取较大者
     // 第一个子节点，位置从头算
     // 最后一个子节点，位置从末尾高度减去空白开始算
-    let tmpHDist = getVDist(allHeight, fromY, nd.childs[0], resultWrapper, true, options);
+    let tmpHDist = getVDist(allHeight, fromY, nd.childs[0], resultWrapper, true, options, cache);
     hDist = Math.max(tmpHDist, hDist);
-    tmpHDist = getVDist(allHeight, fromY, nd.childs[nd.childs.length - 1], resultWrapper, false, options);
+    tmpHDist = getVDist(allHeight, fromY, nd.childs[nd.childs.length - 1], resultWrapper, false, options, cache);
     hDist = Math.max(tmpHDist, hDist);
 
     // 取按夹角计算的水平距离与指定最小距离中的较大者
-    const calcXDist = toInt(hDist * Math.tan(xDistAngleDegree * Math.PI / 180));
-    return toInt(Math.max(xDist, calcXDist));
+    return toInt(Math.max(
+        xDist,
+        toInt(hDist * Math.tan(xDistAngleDegree * Math.PI / 180))
+    ));
 }
 
 /**
@@ -284,8 +293,8 @@ const calcXDist = (nd, resultWrapper, leftAndRightH, options) => {
  *    |     |  -----------> subAllHeight: sub node tree height
  *    ^ ------------------> allHeight: parent node tree height
  */
-const getVDist = (allHeight, fromY, subNd, resultWrapper, topDown = true, options) => {
-    let subAllHeight = getNdHeight(subNd, resultWrapper, options);
+const getVDist = (allHeight, fromY, subNd, resultWrapper, topDown = true, options, cache) => {
+    let subAllHeight = getNdHeight(subNd, resultWrapper, options, cache);
     let subSelfHeight = resultWrapper.rects[subNd.id].height;
     let toY = (subAllHeight - subSelfHeight) / 2 + (1 === subNd.lev ? subSelfHeight / 2 : subSelfHeight);
     if (!topDown) {
@@ -326,7 +335,7 @@ const putExpBtn = (nd, l, t, left = false, resultWrapper = null) => {
 /**
  * 对根节点的子树进行左右方向的计算，并返回左右子树的高度
  */
-const setNdDirection = (rootNd, resultWrapper, options) => {
+const setNdDirection = (rootNd, resultWrapper, options, cache) => {
     const {
         allNdsOnRight,
         nodePaddingTop,
@@ -345,7 +354,7 @@ const setNdDirection = (rootNd, resultWrapper, options) => {
     (rootNd?.childs ?? []).forEach((child, ind) => {
         // true-left false-right
         resultWrapper.directions[child.id] = false;
-        rightH += (0 < ind ? toInt(nodePaddingTop) : 0) + getNdHeight(child, resultWrapper, {nodePaddingTop,});
+        rightH += (0 < ind ? toInt(nodePaddingTop) : 0) + getNdHeight(child, resultWrapper, {nodePaddingTop,}, cache);
         ++sumNdCnt;
     });
     let dist = rightH;
@@ -367,7 +376,7 @@ const setNdDirection = (rootNd, resultWrapper, options) => {
         if (end) {
             return;
         }
-        let h = getNdHeight(child, resultWrapper, options);
+        let h = getNdHeight(child, resultWrapper, options, cache);
         let newLeftH = leftH + (0 < leftH ? toInt(nodePaddingTop) : 0) + h;//
         let newRightH = rightH - h - (1 < sumNdCnt - leftNdCnt ? toInt(nodePaddingTop) : 0);
         let newDist = Math.abs(newRightH - newLeftH);
@@ -387,30 +396,34 @@ const setNdDirection = (rootNd, resultWrapper, options) => {
 }
 
 
-const getSubTreeHeight = (nd, resultWrapper, options) => {
-    if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
-        return 0;
-    }
-    const {nodePaddingTop} = options;
-    let sumChildrenH = 0;
-    nd.childs.forEach((child, ind) => {
-        sumChildrenH += (0 < ind ? toInt(nodePaddingTop) : 0) + getNdHeight(child, resultWrapper, options);//从第二个子节点开始，要加上空白的距离
-    });
-    return sumChildrenH;
+const getSubTreeHeight = (nd, resultWrapper, options, cache) => {
+    return getNdHeight(nd, resultWrapper, options, cache, true);
 }
 
-const getNdHeight = (nd, resultWrapper, {nodePaddingTop,}) => {
-    //无子节点或未展开，取本节点的高度
-    if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
-        return toInt(resultWrapper.rects[nd.id].height);
+const getNdHeight = (nd, resultWrapper, {nodePaddingTop,}, cache, onlySubTreeHeight = false) => {
+    if (onlySubTreeHeight && cache.subTreeHeight.has(nd.id)) {
+        return cache.subTreeHeight.get(nd.id);
+    }
+    if (!onlySubTreeHeight && cache.allHeight.has(nd.id)) {
+        return cache.allHeight.get(nd.id);
     }
 
+    //无子节点或未展开，取本节点的高度
+    if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
+        cache.subTreeHeight.set(nd.id, 0);
+        cache.allHeight.set(nd.id, toInt(resultWrapper.rects[nd.id].height));
+    }
     //有子节点，取所有子节点的高度和，中间加上空白的距离
-    let sumChildrenH = 0;
-    nd.childs.forEach((child, ind) => {
-        sumChildrenH += (0 < ind ? toInt(nodePaddingTop) : 0) + getNdHeight(child, resultWrapper, {nodePaddingTop,});//从第二个子节点开始，要加上空白的距离
-    });
-    return toInt(`${Math.max(resultWrapper.rects[nd.id].height, sumChildrenH)}`);
+    else {
+        let sumChildrenH = 0;
+        nd.childs.forEach((child, ind) => {
+            sumChildrenH += (0 < ind ? toInt(nodePaddingTop) : 0) + getNdHeight(child, resultWrapper, {nodePaddingTop,}, cache);//从第二个子节点开始，要加上空白的距离
+        });
+        cache.subTreeHeight.set(nd.id, sumChildrenH);
+        cache.allHeight.set(nd.id, toInt(`${Math.max(resultWrapper.rects[nd.id].height, sumChildrenH)}`));
+    }
+
+    return onlySubTreeHeight ? cache.subTreeHeight.get(nd.id) : cache.allHeight.get(nd.id);
 }
 
 
