@@ -1,6 +1,7 @@
 import {treeLayout} from './js/facade.js';
 
-const ndTree = {
+
+let ndTree = {
     id: 'from',
     // selectorOrEle: "#from",
     expand: true,
@@ -37,7 +38,7 @@ const ndTree = {
                     lev: 2,
                     expBtnId: "btn_to4",
                     // selectorOrEle: "#to4",
-                    childs:[
+                    childs: [
                         {
                             id: "to5",
                             lev: 3,
@@ -53,9 +54,66 @@ const ndTree = {
 };
 
 
+const initNodes = () => {
+    const createNdEle = (id, lev, leaf) => {
+        const ndEle = document.createElement("div");
+        ndEle.id = id;
+        ndEle.classList.add("transition", "nd");
+        ndEle.style.width = `${Math.round(100 + Math.random() * 100)}px`;
+        ndEle.style.height = `${Math.round(50 + Math.random() * 100)}px`;
+        ndEle.innerText=id;
+        document.querySelector("#container").appendChild(ndEle);
+
+        if (!leaf) {
+            const expBtnEle = document.createElement("div");
+            expBtnEle.id = `btn_${id}`;
+            expBtnEle.classList.add("transition");
+            expBtnEle.style.zindex = 2;
+            expBtnEle.style.position = "absolute";
+            expBtnEle.innerText = "-";
+            document.querySelector("#container").appendChild(expBtnEle);
+        }
+
+        return {
+            id,
+            expand: true,
+            lev,
+            expBtnId: leaf ? null : `btn_${id}`,
+            childs: [],
+        };
+    };
+
+    const rootNd = createNdEle("root", 0, false);
+    ndTree = rootNd;
+
+    for (let i = 0; i < 2; i++) {
+        const nd = createNdEle(`nd_${i}`, 1, false);
+        rootNd.childs.push(nd);
+
+        for (let j = 0; j < 2; j++) {
+            const nd2 = createNdEle(`nd_${i}_${j}`, 2, false);
+            nd.childs.push(nd2);
+
+            for (let k = 0; k < 2; k++) {
+                const nd3 = createNdEle(`nd_${i}_${j}_${k}`, 3, true);
+                nd2.childs.push(nd3);
+            }
+        }
+    }
+
+    ndTree = rootNd;
+};
+
+
+
+initNodes();
+
+console.log("tree", ndTree);
+
+
 const options = {
-    direction: 'h-right',
-    // direction: 'h',
+    // direction: 'h-right',
+    direction: 'h',
     // direction: 'down',
     // direction: 'up',
 
@@ -75,10 +133,9 @@ const options = {
 };
 
 
-
 const applyStyle = () => {
     const t0 = new Date().getTime();
-    const {ndStyles, expBtnStyles, wrapperStyle,directions} = treeLayout(ndTree, options);
+    const {ndStyles, expBtnStyles, wrapperStyle, directions} = treeLayout(ndTree, options);
 
     console.log("directions", directions);
 

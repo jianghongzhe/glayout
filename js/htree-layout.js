@@ -46,6 +46,8 @@ const htreeLayout = (rootNd, options = {}) => {
     const cache = {
         allHeight: new Map(),
         subTreeHeight: new Map(),
+        sameLevMaxNdWidth: new Map(),
+        maxXDistFromNdToSubNd: new Map(),
     };
 
     const flatNdMap = new Map();
@@ -88,15 +90,19 @@ const putNds = (rootNd, resultWrapper, options, flatNdMap, cache) => {
 
 
     if (true === rootNd.expand) {
-
-        const leftNds = (rootNd?.childs ?? []).filter(nd => resultWrapper.directions[nd.id]);
-        let maxNdWidth = 0;
-        if (sameLevNdsAlign) {
-            maxNdWidth = leftNds.reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].width), 0);
-        }
-
-
         //左
+        const maxXDistLeft = calcMaxXDist({
+            flatNdMap,
+            resultWrapper,
+            options,
+            cache,
+            lev: 1,
+            left: true,
+        });
+        let maxNdWidth = sameLevNdsAlign ?
+            calcMaxSameLevNdWidth({flatNdMap, resultWrapper, cache, lev: 1, left: true}) :
+            0;
+
         (rootNd?.childs ?? []).filter(nd => resultWrapper.directions[nd.id]).forEach(nd => {
             // 设置根节点的子节点的位置，并递归设置再下层节点的位置
             let allHeight = getNdHeight(nd, resultWrapper, options, cache);
@@ -108,19 +114,30 @@ const putNds = (rootNd, resultWrapper, options, flatNdMap, cache) => {
 
             const subXDist = calcXDist(nd, resultWrapper, null, options, cache);
 
-            let startL = toInt(rootLoc[0] - xDist - Math.max(maxNdWidth, resultWrapper.rects[nd.id].width));
-            putSubNds(currLeftTop, startL - subXDist, nd, true, resultWrapper, options, cache, flatNdMap);
+            let startL = rootLoc[0] - xDist - resultWrapper.rects[nd.id].width - subXDist;
+            if (sameLevNdsAlign) {
+                startL = toInt(rootLoc[0] - xDist - Math.max(maxNdWidth, resultWrapper.rects[nd.id].width)) - maxXDistLeft;
+            }
+
+            console.log("left start", startL);
+            putSubNds(currLeftTop, startL, nd, true, resultWrapper, options, cache, flatNdMap);
             currLeftTop += allHeight + toInt(nodePaddingTopSecondary);
         });
 
         //右
-        const rightNds = (rootNd?.childs ?? []).filter(nd => !resultWrapper.directions[nd.id]);
-        maxNdWidth = 0;
-        if (sameLevNdsAlign) {
-            maxNdWidth = rightNds.reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].width), 0);
-        }
+        const maxXDistRight = calcMaxXDist({
+            flatNdMap,
+            resultWrapper,
+            options,
+            cache,
+            lev: 1,
+            left: false,
+        });
+        maxNdWidth = sameLevNdsAlign ?
+            calcMaxSameLevNdWidth({flatNdMap, resultWrapper, cache, lev: 1, left: false}) :
+            0;
 
-        rightNds.forEach(nd => {
+        (rootNd?.childs ?? []).filter(nd => !resultWrapper.directions[nd.id]).forEach(nd => {
             // 设置根节点的子节点的位置，并递归设置再下层节点的位置
             let allHeight = getNdHeight(nd, resultWrapper, options, cache);
             let l = toInt(rootLoc[0] + resultWrapper.rects[rootNd.id].width + xDist);//根节点x + 根节点宽 + 空隙
@@ -130,7 +147,12 @@ const putNds = (rootNd, resultWrapper, options, flatNdMap, cache) => {
 
             const subXDist = calcXDist(nd, resultWrapper, null, options, cache);
 
-            putSubNds(currRightTop, l + Math.max(maxNdWidth, resultWrapper.rects[nd.id].width) + subXDist, nd, false, resultWrapper, options, cache, flatNdMap);
+            let subNdStartLeft = l + resultWrapper.rects[nd.id].width + subXDist;
+            if (sameLevNdsAlign) {
+                subNdStartLeft = l + Math.max(maxNdWidth, resultWrapper.rects[nd.id].width) + maxXDistRight;
+            }
+
+            putSubNds(currRightTop, subNdStartLeft, nd, false, resultWrapper, options, cache, flatNdMap);
             currRightTop += allHeight + toInt(nodePaddingTopSecondary);//
         });
     }
@@ -138,13 +160,38 @@ const putNds = (rootNd, resultWrapper, options, flatNdMap, cache) => {
     return refineNdPos(resultWrapper);
 }
 
+const calcMaxXDist = ({flatNdMap, resultWrapper, options, cache, lev, left}) => {
+    const cacheKey = `${lev}_${!!left}`;
+    if (cache.maxXDistFromNdToSubNd.has(cacheKey)) {
+        return cache.maxXDistFromNdToSubNd.get(cacheKey);
+    }
+
+    const maxXDist = flatNdMap.values()
+        .filter(eachNd => eachNd.lev === lev && !!left === !!(resultWrapper.directions[eachNd.id]) && !flatNdMap.get(eachNd.id).hidden)
+        .reduce((accu, eachNd) => Math.max(accu, calcXDist(eachNd, resultWrapper, null, options, cache)), 0);
+    cache.maxXDistFromNdToSubNd.set(cacheKey, maxXDist);
+    return maxXDist;
+};
+
+const calcMaxSameLevNdWidth = ({flatNdMap, resultWrapper, cache, lev, left}) => {
+    const cacheKey = `${lev}_${!!left}`;
+    if (cache.sameLevMaxNdWidth.has(cacheKey)) {
+        return cache.sameLevMaxNdWidth.get(cacheKey);
+    }
+
+    const maxWidth = flatNdMap.values()
+        .filter(eachNd => eachNd.lev === lev && !!left === !!(resultWrapper.directions[eachNd.id]) && !flatNdMap.get(eachNd.id).hidden)
+        .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].width), 0);
+    cache.sameLevMaxNdWidth.set(cacheKey, maxWidth);
+    return maxWidth;
+};
 
 const putSubNds = (startT, startL, parNd, left, resultWrapper, options, cache, flatNdMap) => {
     if (true !== parNd.expand) {
         return;
     }
 
-    const {nodePaddingTop,sameLevNdsAlign} = options;
+    const {nodePaddingTop, sameLevNdsAlign,} = options;
 
     // 子节点y坐标起始位置校正
     // 如果子节点高度之和小于父节点本身高度，则起始位置增加两者差值的一半
@@ -157,6 +204,22 @@ const putSubNds = (startT, startL, parNd, left, resultWrapper, options, cache, f
         startT = toInt(startT + (parHeight - childAllHeight) / 2);
     }
 
+    const maxXDist = calcMaxXDist({
+        flatNdMap,
+        resultWrapper,
+        options,
+        cache,
+        lev: parNd.lev + 1,
+        left,
+    });
+
+    const maxSameLevNdWidth = calcMaxSameLevNdWidth({
+        flatNdMap,
+        resultWrapper,
+        cache,
+        lev: parNd.lev + 1,
+        left,
+    });
 
     parNd?.childs?.forEach(nd => {
         // 子节点与下级节点间的水平距离
@@ -174,13 +237,12 @@ const putSubNds = (startT, startL, parNd, left, resultWrapper, options, cache, f
 
             putExpBtn(nd, startL, t, left, resultWrapper);
 
-            let maxWidth=0;
-            if(sameLevNdsAlign){
-                maxWidth=flatNdMap.values().filter(eachNd=>eachNd.lev===nd.lev && !resultWrapper.directions[eachNd.id])
-                    .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].width), 0);
+            let subNdStartLeft = startL + resultWrapper.rects[nd.id].width + xDist;
+            if (sameLevNdsAlign) {
+                subNdStartLeft = startL + Math.max(maxSameLevNdWidth, resultWrapper.rects[nd.id].width) + maxXDist;
             }
 
-            putSubNds(startT, startL + Math.max(maxWidth, resultWrapper.rects[nd.id].width) + xDist, nd, left, resultWrapper, options, cache, flatNdMap);//右边节点的位置是当前节点
+            putSubNds(startT, subNdStartLeft, nd, left, resultWrapper, options, cache, flatNdMap);//右边节点的位置是当前节点
             startT += allHeight + toInt(nodePaddingTop);
             return;
         }
@@ -195,14 +257,12 @@ const putSubNds = (startT, startL, parNd, left, resultWrapper, options, cache, f
         };
         putExpBtn(nd, l, t, left, resultWrapper);
 
-        let maxWidth=0;
-        if(sameLevNdsAlign){
-            maxWidth=flatNdMap.values().filter(eachNd=>eachNd.lev===nd.lev && resultWrapper.directions[eachNd.id])
-                .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].width), 0);
+        let subNdStartLeft = startL - resultWrapper.rects[nd.id].width - xDist;
+        if (sameLevNdsAlign) {
+            subNdStartLeft = startL - Math.max(maxSameLevNdWidth, resultWrapper.rects[nd.id].width) - maxXDist;
         }
-        l = startL - Math.max(maxWidth, resultWrapper.rects[nd.id].width);
 
-        putSubNds(startT, l - xDist, nd, left, resultWrapper, options, cache, flatNdMap);
+        putSubNds(startT, subNdStartLeft, nd, left, resultWrapper, options, cache, flatNdMap);
         startT += allHeight + toInt(nodePaddingTop);
     });
 }
@@ -377,7 +437,7 @@ const setNdDirection = (rootNd, resultWrapper, options, cache) => {
     }
 
     const setDirectionsRecursively = (nd, left) => {
-        resultWrapper.directions[nd.id] = true;
+        resultWrapper.directions[nd.id] = left;
         (nd?.childs ?? []).forEach(subNd => setDirectionsRecursively(subNd, left));
     };
 
@@ -389,14 +449,6 @@ const setNdDirection = (rootNd, resultWrapper, options, cache) => {
         ++sumNdCnt;
     });
     let dist = rightH;
-
-
-
-    // TODO test all nodes on left
-    (rootNd?.childs ?? []).forEach((child, ind) => {
-        setDirectionsRecursively(child, true);
-    });
-    return [rightH, leftH];
 
 
     //如果设置了强制所有节点都在右侧，则直接返回

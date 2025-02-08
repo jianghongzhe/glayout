@@ -23,6 +23,7 @@ const downtreeLayout = (rootNd, options = {}) => {
     const cache = {
         allWidth: new Map(),
         subTreeWidth: new Map(),
+        sameLevMaxNdHeight: new Map(),
     };
 
     const flatNdMap = new Map();
@@ -46,6 +47,19 @@ const putNds = (rootNd, resultWrapper, options, cache, flatNdMap) => {
     return refineNdPos(resultWrapper);
 }
 
+const calcMaxSameLevNdHeight = ({flatNdMap, resultWrapper, cache, lev}) => {
+    const cacheKey = `${lev}`;
+    if (cache.sameLevMaxNdHeight.has(cacheKey)) {
+        return cache.sameLevMaxNdHeight.get(cacheKey);
+    }
+
+    const maxHeight = flatNdMap.values()
+        .filter(eachNd => eachNd.lev === lev && !flatNdMap.get(eachNd.id).hidden)
+        .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].height), 0);
+    cache.sameLevMaxNdHeight.set(cacheKey, maxHeight);
+    return maxHeight;
+};
+
 const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cache, flatNdMap) => {
 
     const {yDistRoot, yDist, nodePaddingLeftSecondary, nodePaddingLeft, sameLevNdsAlign} = options;
@@ -67,8 +81,7 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cach
     // 子节点的样式，高度的起始位置为父节点的下面加上空白的距离
     let maxNdHeight = resultWrapper.rects[nd.id].height;
     if (sameLevNdsAlign && 0 < nd.lev) {
-        maxNdHeight = flatNdMap.values().filter(eachNd => nd.lev === eachNd.lev)
-            .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].height), 0);
+        maxNdHeight = calcMaxSameLevNdHeight({flatNdMap, resultWrapper, cache, lev: nd.lev});
     }
 
     const subBeginTop = beginTop + maxNdHeight + toInt(0 === nd.lev ? yDistRoot : yDist);

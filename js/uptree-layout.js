@@ -24,6 +24,7 @@ const uptreeLayout = (rootNd, options = {}) => {
     const cache = {
         allWidth: new Map(),
         subTreeWidth: new Map(),
+        sameLevMaxNdHeight: new Map(),
     };
 
     const flatNdMap = new Map();
@@ -47,7 +48,20 @@ const putNds = (rootNd, resultWrapper, options, cache, flatNdMap) => {
     return refineNdPos(resultWrapper);
 }
 
-const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cache, flatNdMap) => {
+const calcMaxSameLevNdHeight = ({flatNdMap, resultWrapper, cache, lev}) => {
+    const cacheKey = `${lev}`;
+    if (cache.sameLevMaxNdHeight.has(cacheKey)) {
+        return cache.sameLevMaxNdHeight.get(cacheKey);
+    }
+
+    const maxHeight = flatNdMap.values()
+        .filter(eachNd => eachNd.lev === lev && !flatNdMap.get(eachNd.id).hidden)
+        .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].height), 0);
+    cache.sameLevMaxNdHeight.set(cacheKey, maxHeight);
+    return maxHeight;
+};
+
+const putNdsRecursively = (nd, resultWrapper, beginLeft, beginBottom, options, cache, flatNdMap) => {
 
     const {yDistRoot, yDist, nodePaddingLeftSecondary, nodePaddingLeft, sameLevNdsAlign} = options;
 
@@ -55,7 +69,7 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cach
     const sumW = getNdWidth(nd, resultWrapper, options, cache);
     resultWrapper.ndStyles[nd.id] = {
         left: toInt(beginLeft + (sumW - selfW) / 2),
-        top: beginTop,
+        top: beginBottom - resultWrapper.rects[nd.id].height,
     };
 
     const hasChildsAndExpand = (0 < (nd?.childs ?? []).length && true === nd.expand);
@@ -63,10 +77,13 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cach
         return;
     }
 
-
     // 子节点的样式，高度的起始位置为父节点的下面加上空白的距离
-    const subBeginTop = beginTop - toInt(0 === nd.lev ? yDistRoot : yDist);
+    let subBeginBottom = beginBottom - resultWrapper.rects[nd.id].height - toInt(0 === nd.lev ? yDistRoot : yDist);
 
+    if (sameLevNdsAlign) {
+        const maxNdHeight = calcMaxSameLevNdHeight({flatNdMap, resultWrapper, cache, lev: nd.lev});
+        subBeginBottom = beginBottom - maxNdHeight - toInt(0 === nd.lev ? yDistRoot : yDist);
+    }
 
     let accuBeginLeft = beginLeft;
 
@@ -84,15 +101,9 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cach
         accuBeginLeft += toInt((selfW - childSumW) / 2);
     }
 
-    let maxNdHeight = 0;
-    if (sameLevNdsAlign) {
-        maxNdHeight = flatNdMap.values().filter(eachNd => nd.lev + 1 === eachNd.lev)
-            .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].height), 0);
-    }
 
     for (const element of nd.childs) {
-        const eachBeginTop = subBeginTop - Math.max(maxNdHeight, resultWrapper.rects[element.id].height);
-        putNdsRecursively(element, resultWrapper, accuBeginLeft, eachBeginTop, options, cache, flatNdMap);
+        putNdsRecursively(element, resultWrapper, accuBeginLeft, subBeginBottom, options, cache, flatNdMap);
         accuBeginLeft += getNdWidth(element, resultWrapper, options, cache) +
             toInt(1 === element.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
     }
@@ -131,7 +142,6 @@ const putExpBtnRecursively = (nd, resultWrapper) => {
 
 const getNdWidth = (nd, resultWrapper, options, cache) => {
     if (cache.allWidth.has(nd.id)) {
-        console.log("use cache", nd.id);
         return cache.allWidth.get(nd.id);
     }
 
