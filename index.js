@@ -35,13 +35,17 @@ const ndTree = {
                 {
                     id: "to4",
                     lev: 2,
+                    expBtnId: "btn_to4",
                     // selectorOrEle: "#to4",
+                    childs:[
+                        {
+                            id: "to5",
+                            lev: 3,
+                            // selectorOrEle: "#to5",
+                        },
+                    ]
                 },
-                {
-                    id: "to5",
-                    lev: 2,
-                    // selectorOrEle: "#to5",
-                },
+
             ]
         }
 
@@ -50,9 +54,9 @@ const ndTree = {
 
 
 const options = {
-    // direction: 'h-right',
+    direction: 'h-right',
     // direction: 'h',
-    direction: 'down',
+    // direction: 'down',
     // direction: 'up',
 
     //// for h or h-right layout
@@ -67,13 +71,17 @@ const options = {
     // nodePaddingLeft: 10,
     // yDistRoot: 60,
     // yDist: 40,
+    sameLevNdsAlign: true,
 };
 
 
 
 const applyStyle = () => {
     const t0 = new Date().getTime();
-    const {ndStyles, expBtnStyles, wrapperStyle} = treeLayout(ndTree, options);
+    const {ndStyles, expBtnStyles, wrapperStyle,directions} = treeLayout(ndTree, options);
+
+    console.log("directions", directions);
+
     const t1 = new Date().getTime();
 
     for (let id in ndStyles) {

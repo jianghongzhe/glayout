@@ -1,12 +1,6 @@
 import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
 import {toInt} from "./util.js";
-
-const defaultOptions = {
-    nodePaddingLeftSecondary: 20,
-    nodePaddingLeft: 10,
-    yDistRoot: 60,
-    yDist: 40,
-};
+import {upDownTreeLayoutDefaultOptions} from "./const.js";
 
 const downtreeLayout = (rootNd, options = {}) => {
     if (!rootNd) {
@@ -14,7 +8,7 @@ const downtreeLayout = (rootNd, options = {}) => {
     }
 
     options = {
-        ...defaultOptions,
+        ...upDownTreeLayoutDefaultOptions,
         ...options,
     };
 
@@ -36,7 +30,7 @@ const downtreeLayout = (rootNd, options = {}) => {
     loadRects(flatNdMap, result);
 
     // put nodes and calc canvas size
-    let [w, h] = putNds(rootNd, result, options, cache);
+    let [w, h] = putNds(rootNd, result, options, cache, flatNdMap);
     result.wrapperStyle = {
         width: w,
         height: h,
@@ -47,14 +41,14 @@ const downtreeLayout = (rootNd, options = {}) => {
     return result;
 };
 
-const putNds = (rootNd, resultWrapper, options, cache) => {
-    putNdsRecursively(rootNd, resultWrapper, 0, 0, options, cache);
+const putNds = (rootNd, resultWrapper, options, cache, flatNdMap) => {
+    putNdsRecursively(rootNd, resultWrapper, 0, 0, options, cache, flatNdMap);
     return refineNdPos(resultWrapper);
 }
 
-const putNdsRecursively = (nd, resultWrapper, beginLeft = 0, beginTop = 0, options, cache) => {
+const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cache, flatNdMap) => {
 
-    const {yDistRoot, yDist, nodePaddingLeftSecondary, nodePaddingLeft} = options;
+    const {yDistRoot, yDist, nodePaddingLeftSecondary, nodePaddingLeft, sameLevNdsAlign} = options;
 
     const selfW = toInt(resultWrapper.rects[nd.id].width);
     const sumW = getNdWidth(nd, resultWrapper, options, cache);
@@ -64,29 +58,39 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft = 0, beginTop = 0, optio
         top: beginTop,
     };
 
+    const hasChildsAndExpand = (0 < (nd?.childs ?? []).length && true === nd.expand);
+    if (!hasChildsAndExpand) {
+        return;
+    }
+
 
     // 子节点的样式，高度的起始位置为父节点的下面加上空白的距离
-    const subBeginTop = beginTop + resultWrapper.rects[nd.id].height + toInt(0 === nd.lev ? yDistRoot : yDist);
+    let maxNdHeight = resultWrapper.rects[nd.id].height;
+    if (sameLevNdsAlign && 0 < nd.lev) {
+        maxNdHeight = flatNdMap.values().filter(eachNd => nd.lev === eachNd.lev)
+            .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].height), 0);
+    }
 
-    if (0 < (nd?.childs ?? []).length && true === nd.expand) {
-        let accuBeginLeft = beginLeft;
+    const subBeginTop = beginTop + maxNdHeight + toInt(0 === nd.lev ? yDistRoot : yDist);
 
-        // 如果子节点所占用的全部宽度比父节点本身宽度还小，则增加一些偏移量（宽度差的一半）
-        let childSumW = 0;
-        for (let i = 0; i < nd.childs.length; ++i) {
-            childSumW += getNdWidth(nd.childs[i], resultWrapper, options, cache);
-            if (0 < i) {
-                childSumW += toInt(1 === nd.childs[i].lev ? nodePaddingLeftSecondary : nodePaddingLeft);
-            }
-        }
-        if (childSumW < selfW) {
-            accuBeginLeft += toInt((selfW - childSumW) / 2);
-        }
 
-        for (const subNd of nd.childs) {
-            putNdsRecursively(subNd, resultWrapper, accuBeginLeft, subBeginTop, options, cache);
-            accuBeginLeft += getNdWidth(subNd, resultWrapper, options, cache) + toInt(1 === subNd.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
+    let accuBeginLeft = beginLeft;
+
+    // 如果子节点所占用的全部宽度比父节点本身宽度还小，则增加一些偏移量（宽度差的一半）
+    let childSumW = 0;
+    for (let i = 0; i < nd.childs.length; ++i) {
+        childSumW += getNdWidth(nd.childs[i], resultWrapper, options, cache);
+        if (0 < i) {
+            childSumW += toInt(1 === nd.childs[i].lev ? nodePaddingLeftSecondary : nodePaddingLeft);
         }
+    }
+    if (childSumW < selfW) {
+        accuBeginLeft += toInt((selfW - childSumW) / 2);
+    }
+
+    for (const subNd of nd.childs) {
+        putNdsRecursively(subNd, resultWrapper, accuBeginLeft, subBeginTop, options, cache, flatNdMap);
+        accuBeginLeft += getNdWidth(subNd, resultWrapper, options, cache) + toInt(1 === subNd.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
     }
 }
 
