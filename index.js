@@ -1,57 +1,7 @@
 import {treeLayout} from './js/facade.js';
 
 
-let ndTree = {
-    id: 'from',
-    // selectorOrEle: "#from",
-    expand: true,
-    lev: 0,
-    expBtnId: "btn_from",
-    // expBtnSelectorOrEle: "#btn_from",
-    childs: [
-        {
-            id: "to",
-            lev: 1,
-            // selectorOrEle: "#to",
-            expand: false,
-            expBtnId: "btn_to",
-            // expBtnSelectorOrEle: "#btn_to",
-            childs: [
-                {
-                    id: "to2",
-                    lev: 2,
-                    // selectorOrEle: "#to2",
-                },
-
-            ]
-        },
-        {
-            id: "to3",
-            lev: 1,
-            // selectorOrEle: "#to3",
-            expand: true,
-            expBtnId: "btn_to3",
-            // expBtnSelectorOrEle: "#btn_to3",
-            childs: [
-                {
-                    id: "to4",
-                    lev: 2,
-                    expBtnId: "btn_to4",
-                    // selectorOrEle: "#to4",
-                    childs: [
-                        {
-                            id: "to5",
-                            lev: 3,
-                            // selectorOrEle: "#to5",
-                        },
-                    ]
-                },
-
-            ]
-        }
-
-    ]
-};
+let ndTree = {};
 
 
 const initNodes = () => {

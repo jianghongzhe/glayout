@@ -1,6 +1,7 @@
 import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
 import {toInt} from "./util.js";
 import {upDownTreeLayoutDefaultOptions} from "./const.js";
+import {calcMaxSameLevNdHeight, getNdWidth, getXDistToSiblingNd, getYDistToSubNd} from "./common-updowntree.js";
 
 const downtreeLayout = (rootNd, options = {}) => {
     if (!rootNd) {
@@ -31,41 +32,36 @@ const downtreeLayout = (rootNd, options = {}) => {
     loadRects(flatNdMap, result);
 
     // put nodes and calc canvas size
-    let [w, h] = putNds(rootNd, result, options, cache, flatNdMap);
+    let [w, h] = putNds({nd: rootNd, resultWrapper: result, options, cache, flatNdMap});
     result.wrapperStyle = {
         width: w,
         height: h,
     };
 
-    putExpBtnRecursively(rootNd, result);
+    putExpBtnRecursively({nd: rootNd, resultWrapper: result});
     calcHiddenNdsAndExpBtnsStyle(flatNdMap, result);
     return result;
 };
 
-const putNds = (rootNd, resultWrapper, options, cache, flatNdMap) => {
-    putNdsRecursively(rootNd, resultWrapper, 0, 0, options, cache, flatNdMap);
+const putNds = ({nd, resultWrapper, options, cache, flatNdMap}) => {
+    putNdsRecursively({
+        nd,
+        resultWrapper,
+        beginLeft: 0,
+        beginTop: 0,
+        options,
+        cache,
+        flatNdMap
+    });
     return refineNdPos(resultWrapper);
 }
 
-const calcMaxSameLevNdHeight = ({flatNdMap, resultWrapper, cache, lev}) => {
-    const cacheKey = `${lev}`;
-    if (cache.sameLevMaxNdHeight.has(cacheKey)) {
-        return cache.sameLevMaxNdHeight.get(cacheKey);
-    }
+const putNdsRecursively = ({nd, resultWrapper, beginLeft, beginTop, options, cache, flatNdMap}) => {
 
-    const maxHeight = flatNdMap.values()
-        .filter(eachNd => eachNd.lev === lev && !flatNdMap.get(eachNd.id).hidden)
-        .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].height), 0);
-    cache.sameLevMaxNdHeight.set(cacheKey, maxHeight);
-    return maxHeight;
-};
-
-const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cache, flatNdMap) => {
-
-    const {yDistRoot, yDist, nodePaddingLeftSecondary, nodePaddingLeft, sameLevNdsAlign} = options;
+    const {sameLevNdsAlign} = options;
 
     const selfW = toInt(resultWrapper.rects[nd.id].width);
-    const sumW = getNdWidth(nd, resultWrapper, options, cache);
+    const sumW = getNdWidth({nd, resultWrapper, options, cache});
 
     resultWrapper.ndStyles[nd.id] = {
         left: toInt(beginLeft + (sumW - selfW) / 2),
@@ -77,24 +73,24 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cach
         return;
     }
 
-
-    // 子节点的样式，高度的起始位置为父节点的下面加上空白的距离
+    // sub node top:
+    // if not sameLevNdsAlign: curr node top + curr node height + margin
+    // if sameLevNdsAlign:     curr node top + max height among sibling nodes of curr node + margin
     let maxNdHeight = resultWrapper.rects[nd.id].height;
     if (sameLevNdsAlign && 0 < nd.lev) {
         maxNdHeight = calcMaxSameLevNdHeight({flatNdMap, resultWrapper, cache, lev: nd.lev});
     }
-
-    const subBeginTop = beginTop + maxNdHeight + toInt(0 === nd.lev ? yDistRoot : yDist);
+    const subBeginTop = beginTop + maxNdHeight + getYDistToSubNd({nd, options});
 
 
     let accuBeginLeft = beginLeft;
 
-    // 如果子节点所占用的全部宽度比父节点本身宽度还小，则增加一些偏移量（宽度差的一半）
+    // add some offset if all sub nodes width less than the parent node self width
     let childSumW = 0;
     for (let i = 0; i < nd.childs.length; ++i) {
-        childSumW += getNdWidth(nd.childs[i], resultWrapper, options, cache);
+        childSumW += getNdWidth({nd: nd.childs[i], resultWrapper, options, cache});
         if (0 < i) {
-            childSumW += toInt(1 === nd.childs[i].lev ? nodePaddingLeftSecondary : nodePaddingLeft);
+            childSumW += getXDistToSiblingNd({nd:nd.childs[i], options});
         }
     }
     if (childSumW < selfW) {
@@ -102,23 +98,36 @@ const putNdsRecursively = (nd, resultWrapper, beginLeft, beginTop, options, cach
     }
 
     for (const subNd of nd.childs) {
-        putNdsRecursively(subNd, resultWrapper, accuBeginLeft, subBeginTop, options, cache, flatNdMap);
-        accuBeginLeft += getNdWidth(subNd, resultWrapper, options, cache) + toInt(1 === subNd.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
+        putNdsRecursively({
+            nd: subNd,
+            resultWrapper,
+            beginLeft: accuBeginLeft,
+            beginTop: subBeginTop,
+            options,
+            cache,
+            flatNdMap
+        });
+        accuBeginLeft += getNdWidth({
+            nd: subNd,
+            resultWrapper,
+            options,
+            cache
+        });
+        accuBeginLeft += getXDistToSiblingNd({nd:subNd, options});
     }
 }
 
-
-const putExpBtnRecursively = (nd, resultWrapper) => {
+const putExpBtnRecursively = ({nd, resultWrapper}) => {
     if (0 === (nd?.childs ?? []).length) {
         return;
     }
 
-    const expended = (true === nd.expand);
+    const expanded = (true === nd.expand);
     let baseLeft = toInt(resultWrapper.ndStyles[nd.id].left + resultWrapper.rects[nd.id].width / 2);
     let baseTop = toInt(resultWrapper.ndStyles[nd.id].top + resultWrapper.rects[nd.id].height);
 
-    // 根据是展开还是折叠状态，对位置进行校正
-    if (expended) {
+    // adjust some offset, different with expanded and collapsed status
+    if (expanded) {
         baseLeft -= 2;
         baseTop -= 2;
     } else {
@@ -131,36 +140,11 @@ const putExpBtnRecursively = (nd, resultWrapper) => {
         top: toInt(baseTop),
     };
 
-    // 如果是展开状态，则继续计算子节点的展开按钮样式
-    if (expended) {
-        nd.childs.forEach(subNd => putExpBtnRecursively(subNd, resultWrapper));
+    // calc sub node exp btn position recursively
+    if (expanded) {
+        nd.childs.forEach(subNd => putExpBtnRecursively({nd: subNd, resultWrapper}));
     }
 };
 
-
-const getNdWidth = (nd, resultWrapper, options, cache) => {
-    if (cache.allWidth.has(nd.id)) {
-        return cache.allWidth.get(nd.id);
-    }
-
-    //无子节点或未展开，取本节点的宽度
-    if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
-        return toInt(resultWrapper.rects[nd.id].width);
-    }
-
-    const {nodePaddingLeftSecondary, nodePaddingLeft} = options;
-
-    //有子节点，取所有子节点的高度和，中间加上空白的距离
-    let sumChildrenH = 0;
-    nd.childs.forEach((child, ind) => {
-        if (0 < ind) {
-            sumChildrenH += toInt(1 === child.lev ? nodePaddingLeftSecondary : nodePaddingLeft);
-        }
-        sumChildrenH += getNdWidth(child, resultWrapper, options, cache);
-    });
-
-    cache.allWidth.set(nd.id, toInt(Math.max(resultWrapper.rects[nd.id].width, sumChildrenH)));
-    return cache.allWidth.get(nd.id);
-}
 
 export {downtreeLayout};
