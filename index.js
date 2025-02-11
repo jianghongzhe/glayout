@@ -11,7 +11,7 @@ const initNodes = () => {
         ndEle.classList.add("transition", "nd");
         ndEle.style.width = `${Math.round(100 + Math.random() * 100)}px`;
         ndEle.style.height = `${Math.round(50 + Math.random() * 100)}px`;
-        ndEle.innerText=id;
+        ndEle.innerText = id;
         document.querySelector("#container").appendChild(ndEle);
 
         if (!leaf) {
@@ -55,7 +55,6 @@ const initNodes = () => {
 };
 
 
-
 initNodes();
 
 console.log("tree", ndTree);
@@ -63,9 +62,9 @@ console.log("tree", ndTree);
 
 const options = {
     // direction: 'h-right',
-    direction: 'h',
+    // direction: 'h',
     // direction: 'down',
-    // direction: 'up',
+    direction: 'up',
 
     //// for h or h-right layout
     // nodePaddingTopSecondary: 20,
@@ -123,7 +122,7 @@ setTimeout(() => {
 
 const clickHandler = (nd, expBtnEle) => {
     nd.expand = !(nd.expand);
-    expBtnEle.innerText = !!(nd.expand) ? '-' : `${nd.childs.length}`;
+    expBtnEle.innerText = nd.expand ? '-' : `${nd.childs.length}`;
     applyStyle();
 };
 
@@ -134,7 +133,7 @@ const bindClickEvents = (nd) => {
     }
 
     const expBtnEle = document.querySelector(`#${nd.expBtnId}`);
-    expBtnEle.innerText = !!(nd.expand) ? '-' : `${nd.childs.length}`;
+    expBtnEle.innerText = nd.expand ? '-' : `${nd.childs.length}`;
     expBtnEle.addEventListener('click', clickHandler.bind(null, nd, expBtnEle));
 
     nd.childs.forEach(subNd => bindClickEvents(subNd));

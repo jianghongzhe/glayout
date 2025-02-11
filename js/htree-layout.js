@@ -284,7 +284,6 @@ const putSubNds = ({startT, startL, parNd, left, resultWrapper, options, cache, 
                 subNdStartLeft = startL + Math.max(maxSameLevNdWidth, resultWrapper.rects[nd.id].width) + maxXDist;
             }
 
-            //右边节点的位置是当前节点
             putSubNds({
                 startT,
                 startL: subNdStartLeft,
@@ -359,14 +358,16 @@ const calcXDist = ({nd, resultWrapper, leftAndRightH, options, cache}) => {
         xDist
     } = options;
 
-    // 节点未展开或没有子节点，返回0
+    // not expand or no child node
     if (true !== nd.expand || 0 === (nd?.childs ?? []).length) {
         return 0;
     }
     let hDist = 0;
 
-    // 如果是根节点到子节点，则分别计算左子树的第一个节点与最后一个节点和右子树的第一个节点与最后一个节点中最大的高度差；
-    // 然后根据公式计算得到水平距离并与指定最小值取较大者
+    // root node to sub node:
+    // calc the max height distance for first node and last node of left tree and first node and last node of right tree,
+    // and then use the formula the calc the distance,
+    // and get the max of the above value and config value
     if (0 === nd.lev) {
         const [leftH, rightH] = leftAndRightH;
         if (leftH > 0) {
@@ -426,20 +427,19 @@ const calcXDist = ({nd, resultWrapper, leftAndRightH, options, cache}) => {
         ));
     }
 
-
-    // 二级或以下节点到子节点的情况
+    // second node (or sub node) to its sub node
     const allHeight = getSubTreeHeight({nd, resultWrapper, options, cache});
 
-    // 起始纵坐标位置：
-    // 如果为根节点或二级节点到其子节点的连接线，起始位置为节点中间；否则，起始位置为节点底部
+    // start position:
+    // for the root node and second level node, position is the center
+    // for other node, position is the bottom
     let fromY = toInt(allHeight / 2);
     if (nd.lev >= 2) {
         fromY += toInt(resultWrapper.rects[nd.id].height / 2);
     }
 
-    // 以第一个子节点和最后一个子节点为代表计算与起始位置的高度差，取较大者
-    // 第一个子节点，位置从头算
-    // 最后一个子节点，位置从末尾高度减去空白开始算
+    // get the max vertical distance of node to the first sub node and to the last sub node
+    // calc for first sub node from top to down, and down to top for the last sub node
     let tmpHDist = getVDist({
         allHeight,
         fromY,
@@ -461,7 +461,6 @@ const calcXDist = ({nd, resultWrapper, leftAndRightH, options, cache}) => {
     });
     hDist = Math.max(tmpHDist, hDist);
 
-    // 取按夹角计算的水平距离与指定最小距离中的较大者
     return toInt(Math.max(
         xDist,
         toInt(hDist * Math.tan(xDistAngleDegree * Math.PI / 180))
@@ -505,15 +504,16 @@ const putExpBtn = ({nd, l, t, left = false, resultWrapper}) => {
         return;
     }
 
+    // assume the exp btn position is on the right of the node
     resultWrapper.expBtnStyles[nd.id] = {
-        left: toInt(l + resultWrapper.rects[nd.id].width), //先假设横向位置在节点右侧
+        left: toInt(l + resultWrapper.rects[nd.id].width),
         top: toInt(t + resultWrapper.rects[nd.id].height - resultWrapper.expBtnRects[nd.id].height + 4),
     };
-    //如果横向位置在左，侧重新设置
+    // if node is in the left tree, put the btn to the left
     if (left) {
         resultWrapper.expBtnStyles[nd.id].left = toInt(l - resultWrapper.expBtnRects[nd.id].width);
     }
-    //如果是根节点和二级节点，则纵向位置不同，且在展开/折叠状态时纵向位置也不同
+    // do some adjustment if the node is root node or second level node
     if (0 === nd.lev || 1 === nd.lev) {
         if (true === nd.expand) {
             resultWrapper.expBtnStyles[nd.id].top = toInt(t + resultWrapper.rects[nd.id].height / 2 - resultWrapper.expBtnRects[nd.id].height + 4);
@@ -523,14 +523,14 @@ const putExpBtn = ({nd, l, t, left = false, resultWrapper}) => {
 
     }
 
-    // 在之前基础上，对于三级以上（>=2）节点，且是折叠的时候，高度减去5
+    // base on the top handling, for the third level node contains sub node and collapsed, adjust some top value
     if (nd.lev >= 2 && true !== nd.expand) {
         resultWrapper.expBtnStyles[nd.id].top -= 5;
     }
 }
 
 /**
- * 对根节点的子树进行左右方向的计算，并返回左右子树的高度
+ * calc the direction of root node and return [left tree height, right tree height]
  */
 const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
     const {
@@ -538,11 +538,11 @@ const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
         nodePaddingTop,
     } = options;
 
-    //先假设所有节点都在右边
+    // assume all node on the right
     let leftH = 0;
     let rightH = 0;
 
-    //如果根节点未展开，则不再继续计算
+    // root node not expand or no child node
     if (0 === (rootNd?.childs ?? []).length || true !== rootNd.expand) {
         return [leftH, rightH];
     }
@@ -561,18 +561,19 @@ const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
     });
     let dist = rightH;
 
-
-    //如果设置了强制所有节点都在右侧，则直接返回
+    // force all node on the right
     if (allNdsOnRight) {
         return [leftH, rightH];
     }
 
-    // 如果根节点只有一个子节点，则直接返回
+    // root node has only one child node
     if (1 === (rootNd?.childs ?? []).length) {
         return [leftH, rightH];
     }
 
-    // 从最后一个节点开始，依次计算如果把节点放到左侧，是否两边高度差比之前小，如果是就移动，否则结束
+    // from the last node, try to move the node to the left and calc the distance of left tree and right tree,
+    // if the distance less than the distance before move, then confirm to move
+    // and so on util found the min distance of left tree and right tree
     let end = false;
     let leftNdCnt = 0;
     [...(rootNd?.childs ?? [])].reverse().forEach(child => {
@@ -619,15 +620,18 @@ const getNdHeight = ({nd, resultWrapper, options, cache, onlySubTreeHeight = fal
 
     const {nodePaddingTop,} = options;
 
-    //无子节点或未展开，取本节点的高度
+    // no sub node or not expand, subtree height is 0, all height is the height or node self
     if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
         cache.subTreeHeight.set(nd.id, 0);
         cache.allHeight.set(nd.id, toInt(resultWrapper.rects[nd.id].height));
     }
-    //有子节点，取所有子节点的高度和，中间加上空白的距离
+    // has sub node and expand
+    // subtree height contains deep subnode tree
+    // all height is the max of self height and subtree height
     else {
         let sumChildrenH = 0;
         nd.childs.forEach((child, ind) => {
+            // from the second one, add some space
             sumChildrenH += (0 < ind ? toInt(nodePaddingTop) : 0);
             sumChildrenH += getNdHeight({
                 nd: child,
@@ -635,7 +639,7 @@ const getNdHeight = ({nd, resultWrapper, options, cache, onlySubTreeHeight = fal
                 options,
                 cache,
                 onlySubTreeHeight: false,
-            });//从第二个子节点开始，要加上空白的距离
+            });
         });
         cache.subTreeHeight.set(nd.id, sumChildrenH);
         cache.allHeight.set(nd.id, toInt(`${Math.max(resultWrapper.rects[nd.id].height, sumChildrenH)}`));

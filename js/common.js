@@ -65,7 +65,7 @@ const calcHiddenNdsAndExpBtnsStyle = (flatNdMap, result) => {
 };
 
 const refineNdPos = (resultWrapper) => {
-    //计算最小位置与最大位置
+    // calc min and max position
     let minX = 9999999;
     let minY = 9999999;
     let maxX = 0;
@@ -91,7 +91,7 @@ const refineNdPos = (resultWrapper) => {
         }
     }
 
-    //图表容器的大小，里面包括空白
+    // container size, contains padding
     let requireW = (maxX - minX) + graphPadding * 2;
     let requireH = (maxY - minY) + graphPadding * 2;
 
@@ -99,7 +99,8 @@ const refineNdPos = (resultWrapper) => {
     let yAdjust = graphPadding - minY;
     let moreXAdjust = 0;
 
-    //如果容器大小还不到整个区域的大小-10,则增加到该值，同时x坐标也增加以保证在容器里居中
+    // container width or height less than min width or min height, use min width or min height,
+    // and keep horizontal center
     if (requireW < containerMinW) {
         moreXAdjust = (containerMinW - requireW) / 2;
         requireW = containerMinW;

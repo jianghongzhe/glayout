@@ -1,6 +1,6 @@
-const containerMinW = 800;    //导图容器最小宽
-const containerMinH = 600;    //导图容器最小高
-const graphPadding = 40;    //图表内容与容器边缘之间的距离
+const containerMinW = 800;
+const containerMinH = 600;
+const graphPadding = 40;
 
 const htreeLayoutDefaultOptions = {
     allNdsOnRight: false,
