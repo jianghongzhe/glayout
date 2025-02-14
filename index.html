@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vite App</title>
+    <style>
+        .transition {
+            transition: all 0.4s ease;
+            transition-behavior: allow-discrete;
+        }
+
+
+        .nd {
+            z-index: 2;
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            box-sizing: border-box;
+            border-bottom: 1px solid teal;
+            background-color: #EEEEEE;
+            opacity: 1;
+        }
+
+        .container {
+            width: 0;
+            height: 0;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body style="overflow: hidden;padding: 0; margin: 0;">
+
+<div id="loading" style="position: absolute; left:50px;top:50px;">loading</div>
+
+<div style="width:95vw;height:95vh; overflow: auto; padding:0; margin-left:10px;margin-top:10px;border:1px solid lightgrey;">
+    <div id="container" class="container transition"
+         style="border:0;   position: relative; overflow: hidden;  padding: 0; ">
+
+        <!--        <div id="btn_from" class="transition" style="z-index: 2; position: absolute;">x</div>-->
+        <!--        <div id="btn_to" class="transition" style="z-index: 2; position: absolute;">x</div>-->
+        <!--        <div id="btn_to3" class="transition" style="z-index: 2; position: absolute;">x</div>-->
+        <!--        <div id="btn_to4" class="transition" style="z-index: 2; position: absolute;">x</div>-->
+
+        <!--        <div id="from" class="transition nd">root</div>-->
+        <!--        <div id="to" class="transition nd" style="height:200px;width:200px;">nd1</div>-->
+        <!--        <div id="to2" class="transition nd">nd1-1</div>-->
+        <!--        <div id="to3" class="transition nd">to2</div>-->
+        <!--        <div id="to4" class="transition nd" style="width:80px;">to2-1</div>-->
+        <!--        <div id="to5" class="transition nd">to2-2</div>-->
+
+    </div>
+</div>
+
+<script type="module" src="/index.js"></script>
+</body>
+
+</html>
