@@ -1,14 +1,15 @@
 import {containerMinH, containerMinW, graphPadding} from "./const.js";
 import {getEle} from "./util.js";
 
-const refineNdTree=(rootNd)=>{
-    const innerRefineNdTree=(nd, parNd, currLev)=>{
+const refineNdTree = (rootNd) => {
+    const innerRefineNdTree = (nd, parNd, currLev) => {
         return {
             ...nd,
             lev: currLev,
             childs: (nd.childs ?? []).map(subNd => innerRefineNdTree(subNd, nd, currLev + 1)),
             isRoot: null === parNd,
             isLeaf: 0 === (nd.childs ?? []),
+            expand: ('undefined' === typeof nd.expand ? true : true === nd.expand),
         };
     };
     return innerRefineNdTree(rootNd, null, 0);
@@ -149,7 +150,7 @@ const setExtraRecursively = (rootNd, options, resultWrapper) => {
 
         (nd.childs ?? []).forEach(subNd => innerSetExtraRecursively(subNd, nd, options, resultWrapper));
     };
-    innerSetExtraRecursively(rootNd, null,  options, resultWrapper);
+    innerSetExtraRecursively(rootNd, null, options, resultWrapper);
 };
 
 

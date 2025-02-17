@@ -72,7 +72,7 @@ const putNdsRecursively = ({nd, resultWrapper, beginLeft, beginBottom, options, 
         top: beginBottom - resultWrapper.rects[nd.id].height,
     };
 
-    const hasChildsAndExpand = (0 < (nd?.childs ?? []).length && true === nd.expand);
+    const hasChildsAndExpand = (0 < nd.childs.length && true === nd.expand);
     if (!hasChildsAndExpand) {
         return;
     }

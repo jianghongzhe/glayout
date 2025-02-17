@@ -27,7 +27,6 @@ const initNodes = () => {
         return {
             id,
             expand: true,
-            // lev,
             expBtnId: leaf ? null : `btn_${id}`,
             childs: [],
         };
@@ -93,10 +92,7 @@ const options = {
 
 const applyStyle = () => {
     const t0 = new Date().getTime();
-    const {ndStyles, expBtnStyles, wrapperStyle, directions, extra} = treeLayout(ndTree, options);
-
-
-    console.log("directions", directions);
+    const {ndStyles, expBtnStyles, wrapperStyle, extra} = treeLayout(ndTree, options);
     console.log("extra", extra);
 
     const t1 = new Date().getTime();
