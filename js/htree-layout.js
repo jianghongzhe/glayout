@@ -1,5 +1,12 @@
 import {toInt} from './util.js';
-import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
+import {
+    calcHiddenNdsAndExpBtnsStyle,
+    flattenNds,
+    loadRects,
+    refineNdPos,
+    refineNdTree,
+    setExtraRecursively
+} from "./common.js";
 import {htreeLayoutDefaultOptions} from "./const.js";
 
 
@@ -29,6 +36,8 @@ const htreeLayout = (rootNd, options = {}) => {
         return {};
     }
 
+    rootNd = refineNdTree(rootNd);
+
     options = {
         ...htreeLayoutDefaultOptions,
         ...options,
@@ -41,7 +50,11 @@ const htreeLayout = (rootNd, options = {}) => {
         ndStyles: {},
         expBtnStyles: {},
         wrapperStyle: {},
+        extra: {},
     };
+
+
+    // TODO directions embed in extra
 
     const cache = {
         allHeight: new Map(),
@@ -49,6 +62,8 @@ const htreeLayout = (rootNd, options = {}) => {
         sameLevMaxNdWidth: new Map(),
         maxXDistFromNdToSubNd: new Map(),
     };
+
+    setExtraRecursively(rootNd, options, result);
 
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
@@ -68,6 +83,7 @@ const htreeLayout = (rootNd, options = {}) => {
     };
 
     calcHiddenNdsAndExpBtnsStyle(flatNdMap, result);
+
     return result;
 }
 
@@ -549,6 +565,7 @@ const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
 
     const setDirectionsRecursively = (nd, left) => {
         resultWrapper.directions[nd.id] = left;
+        resultWrapper.extra[nd.id].direction = (true === left ? 'l' : 'r');
         (nd?.childs ?? []).forEach(subNd => setDirectionsRecursively(subNd, left));
     };
 
@@ -625,8 +642,8 @@ const getNdHeight = ({nd, resultWrapper, options, cache, onlySubTreeHeight = fal
         cache.subTreeHeight.set(nd.id, 0);
         cache.allHeight.set(nd.id, toInt(resultWrapper.rects[nd.id].height));
     }
-    // has sub node and expand
-    // subtree height contains deep subnode tree
+        // has sub node and expand
+        // subtree height contains deep subnode tree
     // all height is the max of self height and subtree height
     else {
         let sumChildrenH = 0;

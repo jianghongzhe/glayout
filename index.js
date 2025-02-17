@@ -27,7 +27,7 @@ const initNodes = () => {
         return {
             id,
             expand: true,
-            lev,
+            // lev,
             expBtnId: leaf ? null : `btn_${id}`,
             childs: [],
         };
@@ -40,12 +40,21 @@ const initNodes = () => {
         const nd = createNdEle(`nd_${i}`, 1, false);
         rootNd.childs.push(nd);
 
+        if (1 === i) {
+            nd.lineColor = "blue";
+        }
+
         for (let j = 0; j < 2; j++) {
             const nd2 = createNdEle(`nd_${i}_${j}`, 2, false);
             nd.childs.push(nd2);
 
+            // if(1===i && 0===j){
+            //     nd2.lineColor="red";
+            // }
+
             for (let k = 0; k < 2; k++) {
                 const nd3 = createNdEle(`nd_${i}_${j}_${k}`, 3, true);
+                nd3.childs = null;
                 nd2.childs.push(nd3);
             }
         }
@@ -84,9 +93,11 @@ const options = {
 
 const applyStyle = () => {
     const t0 = new Date().getTime();
-    const {ndStyles, expBtnStyles, wrapperStyle, directions} = treeLayout(ndTree, options);
+    const {ndStyles, expBtnStyles, wrapperStyle, directions, extra} = treeLayout(ndTree, options);
+
 
     console.log("directions", directions);
+    console.log("extra", extra);
 
     const t1 = new Date().getTime();
 

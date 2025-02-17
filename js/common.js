@@ -1,6 +1,19 @@
 import {containerMinH, containerMinW, graphPadding} from "./const.js";
 import {getEle} from "./util.js";
 
+const refineNdTree=(rootNd)=>{
+    const innerRefineNdTree=(nd, parNd, currLev)=>{
+        return {
+            ...nd,
+            lev: currLev,
+            childs: (nd.childs ?? []).map(subNd => innerRefineNdTree(subNd, nd, currLev + 1)),
+            isRoot: null === parNd,
+            isLeaf: 0 === (nd.childs ?? []),
+        };
+    };
+    return innerRefineNdTree(rootNd, null, 0);
+};
+
 const flattenNds = (nd, parNd, result) => {
     const isHidden = () => {
         if (null === parNd) {
@@ -119,11 +132,32 @@ const refineNdPos = (resultWrapper) => {
     }
 
     return [requireW, requireH];
-}
+};
+
+const setExtraRecursively = (rootNd, options, resultWrapper) => {
+    const {defLineColor,} = options;
+
+    const innerSetExtraRecursively = (nd, parNd, options, resultWrapper) => {
+        resultWrapper.extra[nd.id] = {
+            lineColor: nd.lineColor || (parNd ? resultWrapper.extra[parNd.id].lineColor : defLineColor),
+            parId: parNd ? parNd.id : null,
+            childIds: (nd.childs ?? []).map(subNd => subNd.id),
+            isRoot: nd.isRoot,
+            isLeaf: nd.isLeaf,
+            lev: nd.lev,
+        };
+
+        (nd.childs ?? []).forEach(subNd => innerSetExtraRecursively(subNd, nd, options, resultWrapper));
+    };
+    innerSetExtraRecursively(rootNd, null,  options, resultWrapper);
+};
+
 
 export {
     flattenNds,
     loadRects,
     calcHiddenNdsAndExpBtnsStyle,
     refineNdPos,
+    setExtraRecursively,
+    refineNdTree,
 }

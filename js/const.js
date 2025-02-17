@@ -2,7 +2,12 @@ const containerMinW = 800;
 const containerMinH = 600;
 const graphPadding = 40;
 
+const treeLayoutDefaultOptions = {
+    defLineColor: 'lightgrey',
+};
+
 const htreeLayoutDefaultOptions = {
+    ...treeLayoutDefaultOptions,
     allNdsOnRight: false,
     sameLevNdsAlign: false,
     nodePaddingTopSecondary: 20,
@@ -13,6 +18,7 @@ const htreeLayoutDefaultOptions = {
 };
 
 const upDownTreeLayoutDefaultOptions = {
+    ...treeLayoutDefaultOptions,
     sameLevNdsAlign: false,
     nodePaddingLeftSecondary: 20,
     nodePaddingLeft: 10,

@@ -1,4 +1,11 @@
-import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
+import {
+    calcHiddenNdsAndExpBtnsStyle,
+    flattenNds,
+    loadRects,
+    refineNdPos,
+    refineNdTree,
+    setExtraRecursively
+} from "./common.js";
 import {toInt} from "./util.js";
 import {upDownTreeLayoutDefaultOptions} from "./const.js";
 import {calcMaxSameLevNdHeight, getNdWidth, getXDistToSiblingNd, getYDistToSubNd} from "./common-updowntree.js";
@@ -8,6 +15,8 @@ const uptreeLayout = (rootNd, options = {}) => {
     if (!rootNd) {
         return {};
     }
+
+    rootNd=refineNdTree(rootNd);
 
     options = {
         ...upDownTreeLayoutDefaultOptions,
@@ -20,6 +29,7 @@ const uptreeLayout = (rootNd, options = {}) => {
         ndStyles: {},
         expBtnStyles: {},
         wrapperStyle: {},
+        extra: {},
     };
 
     const cache = {
@@ -27,6 +37,8 @@ const uptreeLayout = (rootNd, options = {}) => {
         subTreeWidth: new Map(),
         sameLevMaxNdHeight: new Map(),
     };
+
+    setExtraRecursively(rootNd, options, result);
 
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
