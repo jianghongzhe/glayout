@@ -1,5 +1,12 @@
 import {toInt} from './util.js';
-import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
+import {
+    calcHiddenNdsAndExpBtnsStyle,
+    flattenNds,
+    loadRects,
+    refineNdPos,
+    refineNdTree,
+    setExtraRecursively
+} from "./common.js";
 import {htreeLayoutDefaultOptions} from "./const.js";
 
 
@@ -29,6 +36,8 @@ const htreeLayout = (rootNd, options = {}) => {
         return {};
     }
 
+    rootNd = refineNdTree(rootNd);
+
     options = {
         ...htreeLayoutDefaultOptions,
         ...options,
@@ -37,10 +46,10 @@ const htreeLayout = (rootNd, options = {}) => {
     let result = {
         rects: {},
         expBtnRects: {},
-        directions: {},
         ndStyles: {},
         expBtnStyles: {},
         wrapperStyle: {},
+        extra: {},
     };
 
     const cache = {
@@ -49,6 +58,8 @@ const htreeLayout = (rootNd, options = {}) => {
         sameLevMaxNdWidth: new Map(),
         maxXDistFromNdToSubNd: new Map(),
     };
+
+    setExtraRecursively(rootNd, options, result);
 
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
@@ -68,6 +79,7 @@ const htreeLayout = (rootNd, options = {}) => {
     };
 
     calcHiddenNdsAndExpBtnsStyle(flatNdMap, result);
+
     return result;
 }
 
@@ -119,7 +131,7 @@ const putNds = ({rootNd, resultWrapper, options, flatNdMap, cache}) => {
             calcMaxSameLevNdWidth({flatNdMap, resultWrapper, cache, lev: 1, left: true}) :
             0;
 
-        (rootNd?.childs ?? []).filter(nd => resultWrapper.directions[nd.id]).forEach(nd => {
+        rootNd.childs.filter(nd => 'l' === resultWrapper.extra[nd.id].direction).forEach(nd => {
             let allHeight = getNdHeight({nd, resultWrapper, options, cache});
 
             // root node left - space - node self width
@@ -161,7 +173,7 @@ const putNds = ({rootNd, resultWrapper, options, flatNdMap, cache}) => {
             calcMaxSameLevNdWidth({flatNdMap, resultWrapper, cache, lev: 1, left: false}) :
             0;
 
-        (rootNd?.childs ?? []).filter(nd => !resultWrapper.directions[nd.id]).forEach(nd => {
+        rootNd.childs.filter(nd => 'r' === resultWrapper.extra[nd.id].direction).forEach(nd => {
             let allHeight = getNdHeight({nd, resultWrapper, options, cache});
 
             // root node left + root node width + space
@@ -201,7 +213,7 @@ const calcMaxXDist = ({flatNdMap, resultWrapper, options, cache, lev, left}) => 
     }
 
     const maxXDist = flatNdMap.values()
-        .filter(eachNd => eachNd.lev === lev && !!left === !!(resultWrapper.directions[eachNd.id]) && !flatNdMap.get(eachNd.id).hidden)
+        .filter(eachNd => eachNd.lev === lev && (!!left ? 'l' : 'r') === resultWrapper.extra[eachNd.id].direction && !flatNdMap.get(eachNd.id).hidden)
         .reduce((accu, eachNd) => {
             const eachXDist = calcXDist({
                 nd: eachNd,
@@ -223,7 +235,7 @@ const calcMaxSameLevNdWidth = ({flatNdMap, resultWrapper, cache, lev, left}) => 
     }
 
     const maxWidth = flatNdMap.values()
-        .filter(eachNd => eachNd.lev === lev && !!left === !!(resultWrapper.directions[eachNd.id]) && !flatNdMap.get(eachNd.id).hidden)
+        .filter(eachNd => eachNd.lev === lev && (!!left ? 'l' : 'r') === resultWrapper.extra[eachNd.id].direction && !flatNdMap.get(eachNd.id).hidden)
         .reduce((accu, eachNd) => Math.max(accu, resultWrapper.rects[eachNd.id].width), 0);
     cache.sameLevMaxNdWidth.set(cacheKey, maxWidth);
     return maxWidth;
@@ -263,7 +275,7 @@ const putSubNds = ({startT, startL, parNd, left, resultWrapper, options, cache, 
         left,
     });
 
-    parNd?.childs?.forEach(nd => {
+    parNd.childs.forEach(nd => {
         // horizontal space from nd to its sub nodes
         const xDist = calcXDist({nd, resultWrapper, leftAndRightH: null, options, cache});
 
@@ -359,7 +371,7 @@ const calcXDist = ({nd, resultWrapper, leftAndRightH, options, cache}) => {
     } = options;
 
     // not expand or no child node
-    if (true !== nd.expand || 0 === (nd?.childs ?? []).length) {
+    if (true !== nd.expand || 0 === nd.childs.length) {
         return 0;
     }
     let hDist = 0;
@@ -371,7 +383,7 @@ const calcXDist = ({nd, resultWrapper, leftAndRightH, options, cache}) => {
     if (0 === nd.lev) {
         const [leftH, rightH] = leftAndRightH;
         if (leftH > 0) {
-            const leftNds = nd.childs.filter(subNd => resultWrapper.directions[subNd.id]);
+            const leftNds = nd.childs.filter(subNd => 'l' === resultWrapper.extra[subNd.id].direction);
             let fromY = toInt(leftH / 2);
             const allHeight = leftH ?? 0;
             let tmpHDist = getVDist({
@@ -396,7 +408,7 @@ const calcXDist = ({nd, resultWrapper, leftAndRightH, options, cache}) => {
             hDist = Math.max(tmpHDist, hDist);
         }
         if (rightH > 0) {
-            const rightNds = nd.childs.filter(subNd => !resultWrapper.directions[subNd.id]);
+            const rightNds = nd.childs.filter(subNd => 'r'===resultWrapper.extra[subNd.id].direction);
             let fromY = toInt(rightH / 2);
             const allHeight = rightH ?? 0;
             let tmpHDist = getVDist({
@@ -500,7 +512,7 @@ const getVDist = ({allHeight, fromY, subNd, resultWrapper, topDown, options, cac
 }
 
 const putExpBtn = ({nd, l, t, left = false, resultWrapper}) => {
-    if (0 === (nd?.childs ?? []).length) {
+    if (0 === nd.childs.length) {
         return;
     }
 
@@ -543,17 +555,17 @@ const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
     let rightH = 0;
 
     // root node not expand or no child node
-    if (0 === (rootNd?.childs ?? []).length || true !== rootNd.expand) {
+    if (0 === rootNd.childs.length || true !== rootNd.expand) {
         return [leftH, rightH];
     }
 
     const setDirectionsRecursively = (nd, left) => {
-        resultWrapper.directions[nd.id] = left;
-        (nd?.childs ?? []).forEach(subNd => setDirectionsRecursively(subNd, left));
+        resultWrapper.extra[nd.id].direction = (true === left ? 'l' : 'r');
+        nd.childs.forEach(subNd => setDirectionsRecursively(subNd, left));
     };
 
     let sumNdCnt = 0;
-    (rootNd?.childs ?? []).forEach((child, ind) => {
+    rootNd.childs.forEach((child, ind) => {
         // true-left false-right
         setDirectionsRecursively(child, false);
         rightH += (0 < ind ? toInt(nodePaddingTop) : 0) + getNdHeight({nd: child, resultWrapper, options, cache});
@@ -567,7 +579,7 @@ const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
     }
 
     // root node has only one child node
-    if (1 === (rootNd?.childs ?? []).length) {
+    if (1 === rootNd.childs.length) {
         return [leftH, rightH];
     }
 
@@ -576,7 +588,7 @@ const setNdDirection = ({rootNd, resultWrapper, options, cache}) => {
     // and so on util found the min distance of left tree and right tree
     let end = false;
     let leftNdCnt = 0;
-    [...(rootNd?.childs ?? [])].reverse().forEach(child => {
+    [...rootNd.childs].reverse().forEach(child => {
         if (end) {
             return;
         }
@@ -621,12 +633,12 @@ const getNdHeight = ({nd, resultWrapper, options, cache, onlySubTreeHeight = fal
     const {nodePaddingTop,} = options;
 
     // no sub node or not expand, subtree height is 0, all height is the height or node self
-    if (0 === (nd?.childs ?? []).length || true !== nd.expand) {
+    if (0 === nd.childs.length || true !== nd.expand) {
         cache.subTreeHeight.set(nd.id, 0);
         cache.allHeight.set(nd.id, toInt(resultWrapper.rects[nd.id].height));
     }
-    // has sub node and expand
-    // subtree height contains deep subnode tree
+        // has sub node and expand
+        // subtree height contains deep subnode tree
     // all height is the max of self height and subtree height
     else {
         let sumChildrenH = 0;

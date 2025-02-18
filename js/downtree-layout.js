@@ -1,4 +1,11 @@
-import {calcHiddenNdsAndExpBtnsStyle, flattenNds, loadRects, refineNdPos} from "./common.js";
+import {
+    calcHiddenNdsAndExpBtnsStyle,
+    flattenNds,
+    loadRects,
+    refineNdPos,
+    refineNdTree,
+    setExtraRecursively
+} from "./common.js";
 import {toInt} from "./util.js";
 import {upDownTreeLayoutDefaultOptions} from "./const.js";
 import {calcMaxSameLevNdHeight, getNdWidth, getXDistToSiblingNd, getYDistToSubNd} from "./common-updowntree.js";
@@ -7,6 +14,8 @@ const downtreeLayout = (rootNd, options = {}) => {
     if (!rootNd) {
         return {};
     }
+
+    rootNd = refineNdTree(rootNd);
 
     options = {
         ...upDownTreeLayoutDefaultOptions,
@@ -19,6 +28,7 @@ const downtreeLayout = (rootNd, options = {}) => {
         ndStyles: {},
         expBtnStyles: {},
         wrapperStyle: {},
+        extra: {},
     };
 
     const cache = {
@@ -26,6 +36,8 @@ const downtreeLayout = (rootNd, options = {}) => {
         subTreeWidth: new Map(),
         sameLevMaxNdHeight: new Map(),
     };
+
+    setExtraRecursively(rootNd, options, result);
 
     const flatNdMap = new Map();
     flattenNds(rootNd, null, flatNdMap);
@@ -68,7 +80,7 @@ const putNdsRecursively = ({nd, resultWrapper, beginLeft, beginTop, options, cac
         top: beginTop,
     };
 
-    const hasChildsAndExpand = (0 < (nd?.childs ?? []).length && true === nd.expand);
+    const hasChildsAndExpand = (0 < nd.childs.length && true === nd.expand);
     if (!hasChildsAndExpand) {
         return;
     }
@@ -90,7 +102,7 @@ const putNdsRecursively = ({nd, resultWrapper, beginLeft, beginTop, options, cac
     for (let i = 0; i < nd.childs.length; ++i) {
         childSumW += getNdWidth({nd: nd.childs[i], resultWrapper, options, cache});
         if (0 < i) {
-            childSumW += getXDistToSiblingNd({nd:nd.childs[i], options});
+            childSumW += getXDistToSiblingNd({nd: nd.childs[i], options});
         }
     }
     if (childSumW < selfW) {
@@ -113,12 +125,12 @@ const putNdsRecursively = ({nd, resultWrapper, beginLeft, beginTop, options, cac
             options,
             cache
         });
-        accuBeginLeft += getXDistToSiblingNd({nd:subNd, options});
+        accuBeginLeft += getXDistToSiblingNd({nd: subNd, options});
     }
 }
 
 const putExpBtnRecursively = ({nd, resultWrapper}) => {
-    if (0 === (nd?.childs ?? []).length) {
+    if (0 === nd.childs.length) {
         return;
     }
 
