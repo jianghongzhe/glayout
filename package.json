@@ -1,7 +1,15 @@
 {
   "name": "glayout",
   "version": "1.0.0",
+  "description": "tree layout and other layouts",
   "main": "js/facade.js",
+  "keywords": [
+    "layout",
+    "tree"
+  ],
+  "author": "jianghongzhe",
+  "license": "MIT",
+  "repository": "https://gitee.com/gigi198436/glayout",
   "type": "module",
   "scripts": {
     "dev": "vite",
