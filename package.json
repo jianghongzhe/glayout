@@ -1,5 +1,5 @@
 {
-  "name": "glayout",
+  "name": "gigilayout",
   "version": "1.0.0",
   "description": "tree layout and other layouts",
   "main": "js/facade.js",
